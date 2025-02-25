@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
-class SearchProvider with ChangeNotifier {
-  String _searchQuery = '';
+class SearchProvider extends ChangeNotifier {
+  String _query = '';
 
-  String get searchQuery => _searchQuery;
+  String get query => _query;
 
-  void setSearchQuery(String query) {
-    _searchQuery = query;
-    notifyListeners(); // Notify all listeners to update the UI
+  void updateQuery(String newQuery) {
+    
+    _query = newQuery;
+    notifyListeners();
   }
 }

@@ -51,8 +51,6 @@ class _LoginState extends State<Login> {
     }
   }
 
- 
-
   Future<void> loginUsers() async {
     if (_loginFormKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,13 +89,6 @@ class _LoginState extends State<Login> {
                 context,
                 listen: false,
               ).setUserInfo(accessToken);
-
-              /*  // Save user data for further use
-              await Provider.of<LoginData>(
-                context,
-                listen: false,
-              ).setUserData(user);
- */
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const Home()),

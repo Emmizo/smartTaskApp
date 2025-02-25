@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+
+
 class ProjectCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -7,7 +9,10 @@ class ProjectCard extends StatelessWidget {
   final String date;
   final int members;
   final int tasks;
-  final List<dynamic> team; // Add team data
+  final String deadline;
+  final List<dynamic> team;
+  final List<dynamic> taskImages;
+  final List<dynamic> tags;
 
   const ProjectCard({
     Key? key,
@@ -17,7 +22,10 @@ class ProjectCard extends StatelessWidget {
     required this.date,
     required this.members,
     required this.tasks,
-    required this.team, // Mark team as required
+    required this.deadline,
+    required this.team,
+    required this.taskImages,
+    required this.tags,
   }) : super(key: key);
 
   @override
@@ -64,7 +72,9 @@ class ProjectCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        subtitle,
+                        subtitle.length > 17
+                            ? '${subtitle.substring(0, 14)}...'
+                            : subtitle,
                         style: TextStyle(color: Colors.grey[600], fontSize: 14),
                       ),
                     ],
@@ -97,11 +107,35 @@ class ProjectCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Play your way and experience\nof gaming at home',
+                        Text(
+                          subtitle.length > 60
+                              ? '${subtitle.substring(0, 63)}...'
+                              : subtitle,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Make tags scrollable horizontally
+                        SizedBox(
+                          height: 40, // Fixed height for the tags container
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: tags.length,
+                            itemBuilder: (context, index) {
+                              final tag = tags[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 4),
+                                child: Chip(
+                                  label: Text(
+                                    tag['tag_name'],
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  backgroundColor: Colors.grey[200],
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -109,26 +143,29 @@ class ProjectCard extends StatelessWidget {
                   ),
                   Expanded(
                     child: GridView.count(
-                      physics: const NeverScrollableScrollPhysics(),
+                      physics: const BouncingScrollPhysics(),
                       crossAxisCount: 3,
                       padding: const EdgeInsets.all(16),
                       mainAxisSpacing: 8,
                       crossAxisSpacing: 8,
-                      children: List.generate(
-                        6,
-                        (index) => Container(
+                      children: List.generate(taskImages.length, (index) {
+                        final imageUrl =
+                            taskImages[index]['image'] != null &&
+                                    taskImages[index]['image'].isNotEmpty
+                                ? "${team.isNotEmpty ? team[0]['url'] : ''}/${taskImages[index]['image']}"
+                                : "https://img.freepik.com/premium-vector/image-placeholder-icon-vector-image-can-be-used-creativity_120816-253130.jpg";
+
+                        return Container(
                           decoration: BoxDecoration(
                             color: Colors.grey[200],
                             borderRadius: BorderRadius.circular(8),
-                            image: const DecorationImage(
-                              image: NetworkImage(
-                                'https://gratisography.com/wp-content/uploads/2024/11/gratisography-augmented-reality-800x525.jpg',
-                              ),
+                            image: DecorationImage(
+                              image: NetworkImage(imageUrl),
                               fit: BoxFit.cover,
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                     ),
                   ),
                 ],
@@ -166,11 +203,11 @@ class ProjectCard extends StatelessWidget {
                 Row(
                   children: [
                     SizedBox(
-                      height: 24, // Provide a bounded height for the Stack
-                      width: 80, // Provide a bounded width for the Stack
+                      height: 24,
+                      width: 80,
                       child: Stack(
                         children: List.generate(
-                          team.length, // Use team length instead of a fixed number
+                          team.length,
                           (index) => Positioned(
                             left: index * 20.0,
                             child: Container(
@@ -188,13 +225,9 @@ class ProjectCard extends StatelessWidget {
                                   167,
                                   149,
                                   149,
-                                ), // Fallback color
-                                backgroundImage: _getAvatarImage(
-                                  index,
-                                ), // Use image if available
-                                child: _getAvatarFallback(
-                                  index,
-                                ), // Fallback icon if no image
+                                ),
+                                backgroundImage: _getAvatarImage(index),
+                                child: _getAvatarFallback(index),
                               ),
                             ),
                           ),
@@ -233,23 +266,17 @@ class ProjectCard extends StatelessWidget {
     );
   }
 
-  /// Returns the image for the avatar at the given index.
   ImageProvider? _getAvatarImage(int index) {
     if (index < team.length && team[index]['profile_picture'] != null) {
       return NetworkImage(team[index]['profile_picture']);
     }
-    return null; // No image available
+    return null;
   }
 
-  /// Returns the fallback widget (icon or text) for the avatar at the given index.
   Widget? _getAvatarFallback(int index) {
     if (_getAvatarImage(index) == null) {
-      return const Icon(
-        Icons.person, // Fallback icon
-        size: 16,
-        color: Colors.white,
-      );
+      return const Icon(Icons.person, size: 16, color: Colors.white);
     }
-    return null; // No fallback needed if an image is present
+    return null;
   }
 }

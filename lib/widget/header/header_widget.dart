@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_task_app/pages/login.dart';
 import 'package:smart_task_app/provider/header_provider.dart';
 import 'package:smart_task_app/provider/login_data.dart';
+import 'package:smart_task_app/provider/search_provider.dart';
 import 'package:smart_task_app/provider/theme_provider.dart';
 
 class HeaderWidget extends StatefulWidget implements PreferredSizeWidget {
@@ -172,12 +173,22 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                 ],
               ),
               const SizedBox(height: 16),
-              SearchBar(
-                hintText: 'Search...',
-                leading: const Icon(Icons.search),
-                onChanged: (value) {
-                  // Handle search
-                },
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: TextField(
+                  onChanged: (value) {
+                    context.read<SearchProvider>().updateQuery(value);
+                  },
+                  decoration: const InputDecoration(
+                    hintText: 'Search projects...',
+                    prefixIcon: Icon(Icons.search),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 15),
+                  ),
+                ),
               ),
             ],
           ),
