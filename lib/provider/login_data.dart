@@ -13,12 +13,15 @@ class LoginData with ChangeNotifier, DiagnosticableTreeMixin {
     final SharedPreferences prefs = await _prefs;
 
     ApiClient apiClient = ApiClient();
-    Map<String, dynamic> _userData = await apiClient.userInfo(token);
+    _userData = await apiClient.userInfo(token);
     // Add token to each map in the list
-    _userData['token'] = token;
+    for (var user in _userData) {
+      user['token'] = token;
+    }
 
+    // print("provider $_userData");
     String userDataString = jsonEncode(_userData);
-    print("provider $userDataString");
+
     prefs.setString("userData", userDataString.toString());
     notifyListeners();
   }

@@ -27,40 +27,31 @@ class _LoginState extends State<Login> {
   @override
   void initState() {
     super.initState();
-    // loginUsers();
     prefsData();
   }
 
-  prefsData() {
-    _prefs.then((SharedPreferences prefs) {
+  void prefsData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
       String? userData = prefs.getString('userData');
-      // print("Data user info: $userData");
-      // prefs.remove("userData");
-      // prefs.remove('token');
+
       if (userData != null && userData.isNotEmpty) {
-        try {
-          Map<String, dynamic> userDataMap = jsonDecode(userData);
-          String? accessToken = userDataMap['token'];
+        List<dynamic> userDataMap = jsonDecode(userData);
+        String? accessToken = userDataMap[0]['token'];
 
-          // print("Data token: $userDataMap");
-
-          if (accessToken != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const Home()),
-            );
-          }
-          // else {
-          //   Navigator.push(context,
-          //       MaterialPageRoute(builder: (context) => const Login()));
-          // }
-        } catch (e) {
-          print("Error decoding JSON: $e");
-          // Handle the decoding error appropriately
+        if (accessToken != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const Home()),
+          );
         }
       }
-    });
+    } catch (e) {
+      print("Error checking preferences: $e");
+    }
   }
+
+ 
 
   Future<void> loginUsers() async {
     if (_loginFormKey.currentState!.validate()) {
@@ -77,30 +68,54 @@ class _LoginState extends State<Login> {
           emailController.text,
           passwordController.text,
         );
+
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        print("Processed API Response: $res");
 
-        if (res != null &&
-            res is List &&
-            res.isNotEmpty &&
-            res[0]['status'] == 200) {
-          String accessToken = res[0]['token'];
-          await Provider.of<LoginData>(
-            context,
-            listen: false,
-          ).setUserInfo(accessToken);
+        // Check if the response is a List
+        if (res is List && res.isNotEmpty) {
+          // Get the first item in the list
+          var userInfo = res[0];
 
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const Home()),
-          );
+          if (userInfo is Map<String, dynamic>) {
+            // Extract the token and user data
+            String? accessToken = userInfo["token"];
+            var user = userInfo["user"];
+
+            if (accessToken != null && user != null) {
+              // Store the response as is
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('userData', jsonEncode(res));
+
+              await Provider.of<LoginData>(
+                context,
+                listen: false,
+              ).setUserInfo(accessToken);
+
+              /*  // Save user data for further use
+              await Provider.of<LoginData>(
+                context,
+                listen: false,
+              ).setUserData(user);
+ */
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const Home()),
+              );
+            } else {
+              throw Exception("Token or user data missing");
+            }
+          } else {
+            throw Exception("User data is not in expected format");
+          }
         } else {
-          // print(res);
-          throw Exception(res[0]['message'] ?? 'Unknown error occurred');
+          throw Exception("Unexpected API response format");
         }
       } catch (e) {
+        print("Login failed: ${e.toString()}");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text("Login failed: ${e.toString()}"),
             backgroundColor: Colors.red.shade300,
           ),
         );
@@ -118,7 +133,6 @@ class _LoginState extends State<Login> {
       );
 
       try {
-        // Simulate API call
         ApiClient apiClient = ApiClient();
         dynamic res = await apiClient.addUser(
           firstnameController.text,
@@ -129,8 +143,8 @@ class _LoginState extends State<Login> {
         );
         print(res);
 
+        // Check if the response is valid
         if (res != null && res['token'] != null) {
-          // Sign up successful, now you can handle the token for login
           String accessToken = res['token'];
 
           // Store the user data and token
@@ -149,15 +163,13 @@ class _LoginState extends State<Login> {
             ),
           );
 
-          // Perform login manually or navigate directly to home
-          // You can either make a login API call here or just navigate
+          // Navigate to the home screen
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const Home()),
           );
         } else {
-          // Handling error if the token is not in the response
-          throw Exception(res['message'] ?? 'Unknown error occurred');
+          throw Exception(res['message'] ?? 'Signup failed: Unknown error');
         }
 
         _pageController.animateToPage(
@@ -168,7 +180,7 @@ class _LoginState extends State<Login> {
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error signing up'),
+            content: Text('Signup failed: ${e.toString()}'),
             backgroundColor: Colors.red.shade300,
           ),
         );

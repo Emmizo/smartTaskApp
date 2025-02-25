@@ -7,6 +7,7 @@ class ProjectCard extends StatelessWidget {
   final String date;
   final int members;
   final int tasks;
+  final List<dynamic> team; // Add team data
 
   const ProjectCard({
     Key? key,
@@ -16,6 +17,7 @@ class ProjectCard extends StatelessWidget {
     required this.date,
     required this.members,
     required this.tasks,
+    required this.team, // Mark team as required
   }) : super(key: key);
 
   @override
@@ -119,7 +121,9 @@ class ProjectCard extends StatelessWidget {
                             color: Colors.grey[200],
                             borderRadius: BorderRadius.circular(8),
                             image: const DecorationImage(
-                              image: NetworkImage('placeholder_game_image'),
+                              image: NetworkImage(
+                                'https://gratisography.com/wp-content/uploads/2024/11/gratisography-augmented-reality-800x525.jpg',
+                              ),
                               fit: BoxFit.cover,
                             ),
                           ),
@@ -166,7 +170,7 @@ class ProjectCard extends StatelessWidget {
                       width: 80, // Provide a bounded width for the Stack
                       child: Stack(
                         children: List.generate(
-                          3,
+                          team.length, // Use team length instead of a fixed number
                           (index) => Positioned(
                             left: index * 20.0,
                             child: Container(
@@ -181,9 +185,9 @@ class ProjectCard extends StatelessWidget {
                                 radius: 12,
                                 backgroundColor: const Color.fromARGB(
                                   255,
-                                  186,
-                                  75,
-                                  75,
+                                  167,
+                                  149,
+                                  149,
                                 ), // Fallback color
                                 backgroundImage: _getAvatarImage(
                                   index,
@@ -231,14 +235,8 @@ class ProjectCard extends StatelessWidget {
 
   /// Returns the image for the avatar at the given index.
   ImageProvider? _getAvatarImage(int index) {
-    final List<String?> imageUrls = [
-      'https://example.com/avatar1.jpg', // Image URL for avatar 1
-      null, // No image for avatar 2
-      'https://example.com/avatar3.jpg', // Image URL for avatar 3
-    ];
-
-    if (index < imageUrls.length && imageUrls[index] != null) {
-      return NetworkImage(imageUrls[index]!);
+    if (index < team.length && team[index]['profile_picture'] != null) {
+      return NetworkImage(team[index]['profile_picture']);
     }
     return null; // No image available
   }
