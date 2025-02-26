@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-
-
 class ProjectCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -149,22 +147,46 @@ class ProjectCard extends StatelessWidget {
                       mainAxisSpacing: 8,
                       crossAxisSpacing: 8,
                       children: List.generate(taskImages.length, (index) {
-                        final imageUrl =
+                        final hasValidImage =
                             taskImages[index]['image'] != null &&
-                                    taskImages[index]['image'].isNotEmpty
-                                ? "${team.isNotEmpty ? team[0]['url'] : ''}/${taskImages[index]['image']}"
-                                : "https://img.freepik.com/premium-vector/image-placeholder-icon-vector-image-can-be-used-creativity_120816-253130.jpg";
+                            taskImages[index]['image'].isNotEmpty &&
+                            team.isNotEmpty &&
+                            team[0]['url'] != null &&
+                            team[0]['url'].isNotEmpty;
 
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                            borderRadius: BorderRadius.circular(8),
-                            image: DecorationImage(
-                              image: NetworkImage(imageUrl),
-                              fit: BoxFit.cover,
+                        if (hasValidImage) {
+                          final imageUrl =
+                              "${team[0]['url']}/${taskImages[index]['image']}";
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8),
+                              image: DecorationImage(
+                                image: NetworkImage(imageUrl),
+                                fit: BoxFit.cover,
+                                onError: (exception, stackTrace) {
+                                  // Silently handle image loading errors
+                                  print("Failed to load image: $imageUrl");
+                                },
+                              ),
                             ),
-                          ),
-                        );
+                          );
+                        } else {
+                          // Return an empty container with just background color when no valid image
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.image_not_supported_outlined,
+                                color: Colors.grey,
+                                size: 24,
+                              ),
+                            ),
+                          );
+                        }
                       }),
                     ),
                   ),
@@ -220,12 +242,7 @@ class ProjectCard extends StatelessWidget {
                               ),
                               child: CircleAvatar(
                                 radius: 12,
-                                backgroundColor: const Color.fromARGB(
-                                  255,
-                                  167,
-                                  149,
-                                  149,
-                                ),
+                                backgroundColor: Colors.grey[400],
                                 backgroundImage: _getAvatarImage(index),
                                 child: _getAvatarFallback(index),
                               ),
@@ -267,16 +284,28 @@ class ProjectCard extends StatelessWidget {
   }
 
   ImageProvider? _getAvatarImage(int index) {
-    if (index < team.length && team[index]['profile_picture'] != null) {
-      return NetworkImage(team[index]['profile_picture']);
+    if (index < team.length &&
+        team[index]['profile_picture'] != null &&
+        team[index]['profile_picture'].toString().isNotEmpty) {
+      final profilePicture = team[index]['profile_picture'].toString();
+
+      // Validate that the profile picture URL is not empty or malformed
+      if (profilePicture.startsWith('http://') ||
+          profilePicture.startsWith('https://')) {
+        return NetworkImage(profilePicture);
+      }
     }
+    // Return null if there's no valid profile picture
     return null;
   }
 
-  Widget? _getAvatarFallback(int index) {
+  Widget _getAvatarFallback(int index) {
+    // This now always returns a Widget (not Widget?)
     if (_getAvatarImage(index) == null) {
       return const Icon(Icons.person, size: 16, color: Colors.white);
     }
-    return null;
+    return const SizedBox.shrink(); // Return an empty widget if there's an image
   }
 }
+
+// And then where you use these methods in your CircleAvatar:

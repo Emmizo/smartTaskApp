@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:smart_task_app/core/api_client.dart';
 import 'package:smart_task_app/core/auth_utils.dart';
+import 'package:smart_task_app/widget/projects/project_modal_service.dart';
 
 class ListAllProject extends StatefulWidget {
   const ListAllProject({super.key});
@@ -10,22 +11,20 @@ class ListAllProject extends StatefulWidget {
 }
 
 class _ListAllProjectState extends State<ListAllProject> {
-  Future<List<dynamic>>? futureProjects; // Nullable Future<List<dynamic>>
+  Future<List<dynamic>>? futureProjects;
   final ApiClient _apiClient = ApiClient();
   String? _token;
   final TextEditingController _searchController = TextEditingController();
-  List<dynamic> _allProjects = []; // Store all projects
-  List<dynamic> _filteredProjects = []; // Store filtered projects
-  String _sortBy = 'name'; // Default sorting option
-  String _selectedMonth = 'All'; // Default month filter
+  List<dynamic> _allProjects = [];
+  List<dynamic> _filteredProjects = [];
+  String _sortBy = 'name';
+  String _selectedMonth = 'All';
 
   @override
   void initState() {
     super.initState();
     _loadTokenAndFetchProjects();
-    _searchController.addListener(
-      _onSearchChanged,
-    ); // Listen to search input changes
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
@@ -244,7 +243,10 @@ class _ListAllProjectState extends State<ListAllProject> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          // Call the global project modal service
+          ProjectModalService.showCreateProjectModal();
+        },
         tooltip: 'Add New Project',
         child: const Icon(Icons.add),
       ),
@@ -257,12 +259,6 @@ class _ListAllProjectState extends State<ListAllProject> {
         'Projects',
         style: TextStyle(fontWeight: FontWeight.bold),
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.sort),
-          onPressed: _showSortByDialog, // Open sort by dialog
-        ),
-      ],
     );
   }
 

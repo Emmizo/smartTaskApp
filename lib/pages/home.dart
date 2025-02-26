@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_task_app/widget/header/header_widget.dart';
 import 'package:smart_task_app/widget/navigation/bottom_nav_bar.dart';
 import 'package:smart_task_app/widget/projects/project_list.dart';
-import 'package:smart_task_app/widget/tasks/task_list.dart';
+import 'package:smart_task_app/widget/projects/project_modal_service.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -30,8 +30,13 @@ class _HomeState extends State<Home> {
               },
             ),
             Expanded(
-              child: SingleChildScrollView(
-                child: Column(children: [ProjectList(), TaskList()]),
+              // Use Expanded to constrain the scrollable area
+              child: ListView(
+                // Replace SingleChildScrollView with ListView
+                children: [
+                  ProjectList(), // No need for Expanded here
+                  // TaskList(), // No need for Expanded here
+                ],
               ),
             ),
           ],
@@ -39,7 +44,10 @@ class _HomeState extends State<Home> {
       ),
       bottomNavigationBar: const BottomNavBar(),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          // Call the global project modal service
+          ProjectModalService.showCreateProjectModal();
+        },
         backgroundColor: const Color(0xFF6B4EFF),
         child: const Icon(Icons.add),
       ),

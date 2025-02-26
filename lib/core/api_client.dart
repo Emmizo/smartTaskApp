@@ -88,6 +88,71 @@ class ApiClient {
     }
   }
 
+  Future<List<dynamic>> tasks(String token) async {
+    try {
+      Response response = await _dio.get(
+        '${Url.urlData}/tasks',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      // Check if the response has data and it's the shape we expect
+      if (response.data != null && response.data['data'] != null) {
+        // Return the 'data' array from the response
+        return response.data['data'] as List<dynamic>;
+      } else {
+        // If response has a different structure, try to adapt
+        if (response.data is List) {
+          return response.data as List<dynamic>;
+        } else {
+          throw Exception(
+            'Unexpected response format: ${response.data.runtimeType}',
+          );
+        }
+      }
+    } on DioException catch (e) {
+      print("Failed to load tasks: ${e.message}");
+      return []; // Return an empty list on error
+    }
+  }
+
+  Future<List<dynamic>> allUsers() async {
+    try {
+      Response response = await _dio.get('${Url.urlData}/getAllUsers');
+      // print('Response Data: ${response.data}');
+
+      // Check if the response is a list
+      if (response.data != null && response.data is List) {
+        return response.data as List<dynamic>; // Return the list directly
+      } else {
+        throw Exception(
+          'Unexpected response format: ${response.data.runtimeType}',
+        );
+      }
+    } on DioException catch (e) {
+      print("Failed to load users: ${e.message}");
+      return []; // Return an empty list on error
+    }
+  }
+
+  Future<List<dynamic>> allTags() async {
+    try {
+      Response response = await _dio.get('${Url.urlData}/getAllTags');
+      // print('Response Data: ${response.data}');
+
+      // Check if the response is a list
+      if (response.data != null && response.data is List) {
+        return response.data as List<dynamic>; // Return the list directly
+      } else {
+        throw Exception(
+          'Unexpected response format: ${response.data.runtimeType}',
+        );
+      }
+    } on DioException catch (e) {
+      print("Failed to load users: ${e.message}");
+      return []; // Return an empty list on error
+    }
+  }
+
   Future<dynamic> addUser(
     String firstName,
     String lastName,
@@ -105,6 +170,34 @@ class ApiClient {
       });
       Response response = await _dio.post(
         '${Url.urlData}/signup',
+        data: formData,
+      );
+
+      return response.data;
+    } on DioException catch (e) {
+      return e.response!.data;
+    }
+  }
+
+  Future<dynamic> CreateProject(
+    String name,
+    String description,
+    DateTime deadline,
+    List<int> user_id,
+    List<int> tag_id,
+    String token,
+  ) async {
+    try {
+      FormData formData = FormData.fromMap({
+        "name": name,
+        "description": description,
+        "deadline": deadline,
+        "user_id[]": user_id,
+        "tag_id[]": tag_id,
+      });
+      Response response = await _dio.post(
+        '${Url.urlData}/create_projects',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
         data: formData,
       );
 

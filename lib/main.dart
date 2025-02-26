@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:smart_task_app/core/api_client.dart';
 import 'package:smart_task_app/core/splash_screen.dart';
+import 'package:smart_task_app/provider/get_tag_provider.dart';
+import 'package:smart_task_app/provider/get_user_provider.dart';
 import 'package:smart_task_app/provider/header_provider.dart';
 import 'package:smart_task_app/provider/search_provider.dart';
 import 'package:smart_task_app/provider/login_data.dart';
 import 'package:provider/provider.dart';
+import 'package:smart_task_app/provider/task_provider.dart';
 import 'package:smart_task_app/provider/theme_provider.dart';
+import 'package:smart_task_app/widget/projects/project_modal_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +24,9 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => HeaderProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (context) => HeaderProvider()),
+        ChangeNotifierProvider(create: (_) => TaskProvider()),
+        ChangeNotifierProvider(create: (_) => GetUserProvider()),
+        ChangeNotifierProvider(create: (_) => GetTagProvider()),
       ],
       child: const MyApp(),
     ),
@@ -36,6 +44,7 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: themeProvider.currentTheme,
+          navigatorKey: navigatorKey,
           home: SplashScreen(),
         );
       },

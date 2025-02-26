@@ -68,7 +68,7 @@ class _LoginState extends State<Login> {
         );
 
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        print("Processed API Response: $res");
+        
 
         // Check if the response is a List
         if (res is List && res.isNotEmpty) {
@@ -132,7 +132,7 @@ class _LoginState extends State<Login> {
           passwordController.text,
           confirmPasswordController.text,
         );
-        print(res);
+        // print(res);
 
         // Check if the response is valid
         if (res != null && res['token'] != null) {
