@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:smart_task_app/core/api_client.dart';
 import 'package:smart_task_app/core/auth_utils.dart';
+
 import 'package:smart_task_app/pages/list_all_project.dart';
+import 'package:smart_task_app/pages/list_all_task.dart';
 import 'package:smart_task_app/provider/search_provider.dart';
 import 'package:smart_task_app/provider/task_provider.dart';
 import 'package:smart_task_app/widget/projects/project_card.dart';
@@ -175,28 +177,44 @@ class _ProjectListState extends State<ProjectList> {
                                 itemCount: filteredProjects.length,
                                 itemBuilder: (context, index) {
                                   final project = filteredProjects[index];
-                                  return Container(
-                                    width: 300,
-                                    margin: const EdgeInsets.only(right: 16),
-                                    child: ProjectCard(
-                                      title: project['name'],
-                                      subtitle: project['description'],
-                                      progress:
-                                          (project['progress'] as num)
-                                              .toDouble(),
-                                      deadline: project['deadline'],
-                                      date: project['created_at'],
-                                      members: project['team'].length,
-                                      tasks: project['tasks'].length,
-                                      team:
-                                          project['team'].isNotEmpty
-                                              ? project['team'][0]
-                                              : [],
-                                      taskImages: project['tasks'],
-                                      tags:
-                                          project['tag'].isNotEmpty
-                                              ? project['tag'][0]
-                                              : [],
+
+                                  return GestureDetector(
+                                    onTap: () {
+                                      /* Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) => CreateTaskFormModal(
+                                                apiClient: apiClient,
+                                                projectId: projectId,
+                                                token: _token ?? '',
+                                              ),
+                                        ),
+                                      ); */
+                                    },
+                                    child: Container(
+                                      width: 300,
+                                      margin: const EdgeInsets.only(right: 16),
+                                      child: ProjectCard(
+                                        title: project['name'],
+                                        subtitle: project['description'],
+                                        progress:
+                                            (project['progress'] as num)
+                                                .toDouble(),
+                                        deadline: project['deadline'],
+                                        date: project['created_at'],
+                                        members: project['team'].length,
+                                        tasks: project['tasks'].length,
+                                        team:
+                                            project['team'].isNotEmpty
+                                                ? project['team'][0]
+                                                : [],
+                                        taskImages: project['tasks'],
+                                        tags:
+                                            project['tag'].isNotEmpty
+                                                ? project['tag'][0]
+                                                : [],
+                                      ),
                                     ),
                                   );
                                 },
@@ -211,17 +229,25 @@ class _ProjectListState extends State<ProjectList> {
             padding: const EdgeInsets.all(16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+              children: [
                 Text(
                   'Today Tasks',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                Text(
-                  'View All',
-                  style: TextStyle(
-                    color: Color(0xFF6B4EFF),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => ListAllTask()),
+                    );
+                  },
+                  child: const Text(
+                    'View All',
+                    style: TextStyle(
+                      color: Color(0xFF6B4EFF),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],
@@ -270,6 +296,8 @@ class _ProjectListState extends State<ProjectList> {
                   final projectName = task['project_name'] as String;
                   final dueDate = task['due_date'] as String;
                   final team = task['team'] as List<dynamic>;
+                  final status = task['status'] as String;
+                  final tags = task['tags'] as List<dynamic>;
 
                   // Calculate progress
                   final progress = 0.1 + (index * 0.3) % 0.9;
@@ -280,6 +308,8 @@ class _ProjectListState extends State<ProjectList> {
                     dueDate: dueDate,
                     progress: progress,
                     team: team,
+                    status: status,
+                    tags: tags,
                   );
                 },
               );
@@ -298,7 +328,9 @@ class TaskCard extends StatelessWidget {
   final String projectName;
   final String dueDate;
   final double progress;
+  final String status;
   final List<dynamic> team;
+  final List<dynamic> tags;
 
   const TaskCard({
     super.key,
@@ -306,7 +338,9 @@ class TaskCard extends StatelessWidget {
     required this.projectName,
     required this.dueDate,
     required this.progress,
+    required this.status,
     required this.team,
+    required this.tags,
   });
 
   @override
@@ -314,6 +348,22 @@ class TaskCard extends StatelessWidget {
     // Format due date
     final DateTime parsedDate = DateTime.parse(dueDate);
     final String formattedDate = DateFormat('MMM d, yyyy').format(parsedDate);
+
+    // Status color based on priority
+    Color statusColor;
+    switch (status.toLowerCase()) {
+      case 'high':
+        statusColor = Colors.red;
+        break;
+      case 'medium':
+        statusColor = Colors.orange;
+        break;
+      case 'normal':
+        statusColor = Colors.green;
+        break;
+      default:
+        statusColor = Colors.blue;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -353,14 +403,38 @@ class TaskCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            status,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: statusColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -370,9 +444,21 @@ class TaskCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
-                    SizedBox(
-                      height: 24,
-                      child: Row(children: buildTeamAvatars().take(3).toList()),
+                    Row(
+                      children: [
+                        // Team avatars (showing up to 3)
+                        ...buildTeamAvatars().take(3),
+
+                        const SizedBox(width: 8),
+
+                        // Tags
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(children: buildTags()),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -415,7 +501,10 @@ class TaskCard extends StatelessWidget {
 
     for (int i = 0; i < team.length; i++) {
       final member = team[i];
-      final profilePicture = member['profile_picture'] as String;
+      final profilePicture =
+          member['profile_picture'] != null
+              ? member['profile_picture'] as String
+              : '';
       final firstName = member['first_name'] as String;
       final lastName = member['last_name'] as String;
 
@@ -448,5 +537,31 @@ class TaskCard extends StatelessWidget {
     }
 
     return avatars;
+  }
+
+  List<Widget> buildTags() {
+    List<Widget> tagWidgets = [];
+
+    for (final tagObj in tags) {
+      // Extract the tag name from the tag object
+      final String tagName = tagObj['tag_name'] as String;
+
+      tagWidgets.add(
+        Container(
+          margin: const EdgeInsets.only(right: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            tagName,
+            style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+          ),
+        ),
+      );
+    }
+
+    return tagWidgets;
   }
 }

@@ -5,12 +5,12 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_task_app/core/api_client.dart';
+import 'package:smart_task_app/core/global.dart';
+import 'package:smart_task_app/core/notification_service.dart';
 import 'package:smart_task_app/pages/home.dart';
 import 'package:smart_task_app/provider/get_tag_provider.dart';
 import 'package:smart_task_app/provider/get_user_provider.dart';
 
-// Navigator key setup
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class ProjectModalService {
   static void showCreateProjectModal() {
@@ -30,7 +30,7 @@ class CreateProjectModal extends StatefulWidget {
 }
 
 class _CreateProjectModalState extends State<CreateProjectModal> {
-  final _createProjectFormKey = GlobalKey<FormState>();
+
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
@@ -140,6 +140,11 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
 
         await Future.delayed(Duration(seconds: 2));
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+        // Trigger notification for project creation
+        await NotificationService().showProjectCreatedNotification(
+          _nameController.text,
+        );
 
         // Show professional dialog instead of a snackbar
         showDialog(

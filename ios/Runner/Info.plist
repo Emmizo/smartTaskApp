@@ -45,5 +45,30 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+<string>We need access to the network to connect to Firebase.</string>
+<key>FirebaseAppDelegateProxyEnabled</key>
+<true/>
+<key>UIBackgroundModes</key>
+<array>
+   <string>fetch</string>
+   <string>remote-notification</string>
+</array>
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+</dict>
+<key>CFBundleURLTypes</key>
+<array>
+    <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>com.googleusercontent.apps.149756306189-fcu56uron3rrareg4q0qed5atpb3e75n</string>
+        </array>
+    </dict>
+</array>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>This app requires access to the photo library for profile picture selection.</string>
 </dict>
 </plist>

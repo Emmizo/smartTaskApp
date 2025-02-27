@@ -1,8 +1,9 @@
 import 'dart:convert';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smart_task_app/core/user_service.dart';
 import 'package:smart_task_app/pages/login.dart';
 import 'package:smart_task_app/provider/header_provider.dart';
 import 'package:smart_task_app/provider/login_data.dart';
@@ -34,6 +35,12 @@ class _HeaderWidgetState extends State<HeaderWidget> {
   void initState() {
     super.initState();
     getUserResult();
+
+    // Add a test notification after widget initialization for testing
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Uncomment the line below to test adding a notification when the app starts
+      // NotificationService().testNotification();
+    });
   }
 
   void getUserResult() async {
@@ -77,116 +84,181 @@ class _HeaderWidgetState extends State<HeaderWidget> {
 
   @override
   Widget build(BuildContext context) {
+    String userId = userInfo.isNotEmpty ? userInfo[0]['id'].toString() : '';
     return Consumer2<HeaderProvider, ThemeProvider>(
       builder: (context, headerProvider, themeProvider, _) {
         return Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => _showProfileOptions(context),
-                    child: CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.blue,
-                      child:
-                          userInfo.isNotEmpty &&
-                                  userInfo[0]['profile_picture'] != null &&
-                                  userInfo[0]['profile_picture'].isNotEmpty
-                              ? Image.network(userInfo[0]['profile_picture'])
-                              : Text(
-                                getInitials(
-                                  userInfo.isNotEmpty
-                                      ? userInfo[0]['first_name']
-                                      : '',
-                                ),
-                                style: const TextStyle(
-                                  color: Color.fromARGB(255, 255, 253, 253),
-                                ),
-                              ),
+              // Header Row (Fixed height)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    // Profile Avatar with GestureDetector
+                    GestureDetector(
+                      onTap: () => _showProfileOptions(context),
+                      child: Stack(
+                        clipBehavior:
+                            Clip.none, // Ensures the status indicator is not clipped
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: Colors.blue,
+                            child:
+                                userInfo.isNotEmpty &&
+                                        userInfo[0]['profile_picture'] !=
+                                            null &&
+                                        userInfo[0]['profile_picture']
+                                            .isNotEmpty
+                                    ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: Hero(
+                                        tag:
+                                            "profile-${userInfo[0]['profile_picture']}", // Unique tag based on the image URL
+                                        child: Image.network(
+                                          userInfo[0]['profile_picture'],
+                                          width: 40,
+                                          height: 40,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    )
+                                    : Text(
+                                      getInitials(
+                                        userInfo.isNotEmpty
+                                            ? userInfo[0]['first_name']
+                                            : '',
+                                      ),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                          ),
+                          if (userId.isNotEmpty)
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: buildOnlineStatusIndicator(userId),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        userInfo.isNotEmpty ? userInfo[0]['first_name'] : '',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'Hi ${userInfo.isNotEmpty ? userInfo[0]['fovorite_name'] : ''}, ${headerProvider.greeting}!',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  PopupMenuButton(
-                    icon: const Icon(Icons.menu),
-                    onSelected: (value) => _handleMenuOption(context, value),
-                    itemBuilder:
-                        (context) => [
-                          const PopupMenuItem(
-                            value: 'profile',
-                            child: Text('Profile Settings'),
+
+                    const SizedBox(width: 12),
+
+                    // User Info Column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userInfo.isNotEmpty
+                                ? userInfo[0]['first_name']
+                                : '',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          const PopupMenuItem(
-                            value: 'theme',
-                            child: Text('Toggle Theme'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'language',
-                            child: Text('Language'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'logout',
-                            child: Text('Logout'),
+                          Text(
+                            'Hi ${userInfo.isNotEmpty ? userInfo[0]['fovorite_name'] : ''}, ${headerProvider.greeting}!',
+                            style: const TextStyle(color: Colors.grey),
                           ),
                         ],
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      themeProvider.isDarkMode
-                          ? Icons.light_mode
-                          : Icons.dark_mode,
+                      ),
                     ),
-                    onPressed: () => themeProvider.toggleTheme(),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      headerProvider.showNotifications
-                          ? Icons.notifications_outlined
-                          : Icons.notifications_off_outlined,
+
+                    // Theme Toggle Button
+                    IconButton(
+                      icon: Icon(
+                        themeProvider.isDarkMode
+                            ? Icons.light_mode
+                            : Icons.dark_mode,
+                      ),
+                      onPressed: () => themeProvider.toggleTheme(),
                     ),
-                    onPressed: () {
-                      headerProvider.toggleNotifications();
-                      _showNotificationToggleMessage(
-                        context,
-                        headerProvider.showNotifications,
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 8), // Reduced space
+                    // Notification Icon with Badge
+                    Stack(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications_outlined),
+                          onPressed: () {
+                            _showNotifications(context);
+                            print(
+                              "Notification icon clicked. Count: ${headerProvider.notifications.length}",
+                            );
+                          },
+                        ),
+                        if (headerProvider.unreadCount > 0)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                headerProvider.unreadCount.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
-                child: TextField(
-                  onChanged: (value) {
-                    context.read<SearchProvider>().updateQuery(value);
-                  },
-                  decoration: const InputDecoration(
-                    hintText: 'Search projects...',
-                    prefixIcon: Icon(Icons.search),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 15),
+              ),
+
+              // Add Expanded to prevent layout overflow
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 16),
+
+                        // Search Bar
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TextField(
+                            onChanged: (value) {
+                              context.read<SearchProvider>().updateQuery(value);
+                            },
+                            decoration: const InputDecoration(
+                              hintText: 'Search projects...',
+                              prefixIcon: Icon(Icons.search),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // More widgets can be added here
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -194,6 +266,139 @@ class _HeaderWidgetState extends State<HeaderWidget> {
           ),
         );
       },
+    );
+  }
+
+  Widget buildOnlineStatusIndicator(String userId) {
+    return StreamBuilder<bool>(
+      stream: UserService.getUserOnlineStatus(userId),
+      builder: (context, snapshot) {
+        // Add error handling and loading states
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: 12,
+            height: 12,
+          ); // Empty placeholder while loading
+        }
+
+        bool isOnline = snapshot.data ?? false;
+        return Positioned(
+          right: 0,
+          bottom: 0,
+          child: Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: isOnline ? Colors.green : Colors.grey,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showNotifications(BuildContext context) {
+    final headerProvider = Provider.of<HeaderProvider>(context, listen: false);
+
+    print(
+      "Showing notifications modal. Count: ${headerProvider.notifications.length}",
+    );
+
+    showModalBottomSheet(
+      context: context,
+      builder:
+          (context) => StatefulBuilder(
+            builder: (context, setState) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Notifications',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                headerProvider.markAllAsRead();
+                                setState(() {});
+                              },
+                              child: const Text('Mark all as read'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                headerProvider.clearNotifications();
+                                setState(() {});
+                                Navigator.pop(context);
+                              },
+                              child: const Text('Clear all'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    headerProvider.notifications.isEmpty
+                        ? const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Text('No notifications'),
+                        )
+                        : Expanded(
+                          child: ListView.builder(
+                            itemCount: headerProvider.notifications.length,
+                            itemBuilder: (context, index) {
+                              final notification =
+                                  headerProvider.notifications[index];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor:
+                                      notification['read'] == true
+                                          ? Colors.grey
+                                          : Colors.blue,
+                                  child: const Icon(
+                                    Icons.notifications,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                title: Text(
+                                  notification['title'] ?? 'Notification',
+                                ),
+                                subtitle: Text(notification['body'] ?? ''),
+                                trailing: Text(
+                                  notification['time'] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                onTap: () {
+                                  headerProvider.markAsRead(index);
+                                  setState(() {});
+                                  // Handle notification tap (navigate to related content)
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                  ],
+                ),
+              );
+            },
+          ),
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.6,
+      ),
     );
   }
 
@@ -227,50 +432,19 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                     Navigator.pop(context);
                   },
                 ),
-              ],
-            ),
-          ),
-    );
-  }
-
-  void _handleMenuOption(BuildContext context, String value) {
-    switch (value) {
-      case 'profile':
-        _showProfileOptions(context);
-        break;
-      case 'theme':
-        context.read<ThemeProvider>().toggleTheme();
-        break;
-      case 'language':
-        _showLanguageOptions(context);
-        break;
-      case 'logout':
-        _showLogoutDialog(context);
-        break;
-    }
-  }
-
-  void _showLanguageOptions(BuildContext context) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Select Language'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
                 ListTile(
-                  title: const Text('English'),
+                  leading: const Icon(Icons.settings),
+                  title: const Text('Theme Settings'),
                   onTap: () {
-                    // Handle language change
+                    context.read<ThemeProvider>().toggleTheme();
                     Navigator.pop(context);
                   },
                 ),
                 ListTile(
-                  title: const Text('Spanish'),
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Logout'),
                   onTap: () {
-                    // Handle language change
-                    Navigator.pop(context);
+                    _showLogoutDialog(context);
                   },
                 ),
               ],
@@ -299,17 +473,6 @@ class _HeaderWidgetState extends State<HeaderWidget> {
               ),
             ],
           ),
-    );
-  }
-
-  void _showNotificationToggleMessage(BuildContext context, bool enabled) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          enabled ? 'Notifications enabled' : 'Notifications disabled',
-        ),
-        duration: const Duration(seconds: 2),
-      ),
     );
   }
 }

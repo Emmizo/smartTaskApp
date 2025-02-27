@@ -139,57 +139,6 @@ class ProjectCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Expanded(
-                    child: GridView.count(
-                      physics: const BouncingScrollPhysics(),
-                      crossAxisCount: 3,
-                      padding: const EdgeInsets.all(16),
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      children: List.generate(taskImages.length, (index) {
-                        final hasValidImage =
-                            taskImages[index]['image'] != null &&
-                            taskImages[index]['image'].isNotEmpty &&
-                            team.isNotEmpty &&
-                            team[0]['url'] != null &&
-                            team[0]['url'].isNotEmpty;
-
-                        if (hasValidImage) {
-                          final imageUrl =
-                              "${team[0]['url']}/${taskImages[index]['image']}";
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(8),
-                              image: DecorationImage(
-                                image: NetworkImage(imageUrl),
-                                fit: BoxFit.cover,
-                                onError: (exception, stackTrace) {
-                                  // Silently handle image loading errors
-                                  print("Failed to load image: $imageUrl");
-                                },
-                              ),
-                            ),
-                          );
-                        } else {
-                          // Return an empty container with just background color when no valid image
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.image_not_supported_outlined,
-                                color: Colors.grey,
-                                size: 24,
-                              ),
-                            ),
-                          );
-                        }
-                      }),
-                    ),
-                  ),
                 ],
               ),
             ),

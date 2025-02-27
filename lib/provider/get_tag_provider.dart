@@ -22,7 +22,7 @@ class GetTagProvider with ChangeNotifier {
     // print("API Response: $response");
 
     if (response.isEmpty) {
-      print("API returned empty data");
+     
       _tags = [];
     } else {
       // Format according to the structure you need

@@ -33,7 +33,6 @@ class TaskProvider with ChangeNotifier {
             // print("API Response: $response"); // See what you're getting back
 
             if (response.isEmpty) {
-              print("API returned empty data");
               _tasks = [];
             } else {
               // Format according to the structure you need

@@ -14,7 +14,7 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
+  // final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   int _selectedIndex = 0;
   @override
   Widget build(BuildContext context) {
@@ -22,26 +22,23 @@ class _HomeState extends State<Home> {
       body: SafeArea(
         child: Column(
           children: [
-            HeaderWidget(
-              scaffoldKey: _scaffoldKey,
-              selectedIndex: _selectedIndex,
-              onDataPassed: (data) {
-                setState(() {});
-              },
+            SizedBox(
+              height: 180,
+              child: HeaderWidget(
+                scaffoldKey: _scaffoldKey,
+                selectedIndex: _selectedIndex,
+                onDataPassed: (data) {
+                  setState(() {});
+                },
+              ),
             ),
             Expanded(
-              // Use Expanded to constrain the scrollable area
-              child: ListView(
-                // Replace SingleChildScrollView with ListView
-                children: [
-                  ProjectList(), // No need for Expanded here
-                  // TaskList(), // No need for Expanded here
-                ],
-              ),
+              child: ProjectList(), // No need for ListView here
             ),
           ],
         ),
       ),
+
       bottomNavigationBar: const BottomNavBar(),
       floatingActionButton: FloatingActionButton(
         onPressed: () {

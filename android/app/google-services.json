@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "894667091574",
+    "project_id": "smarttask-9ea31",
+    "storage_bucket": "smarttask-9ea31.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:894667091574:android:4525ce7d8582ec6595f957",
+        "android_client_info": {
+          "package_name": "com.example.smart_task_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBH2pcHp5XQJ5_eU24g6B2bV_xtMHQ5rUU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -16,13 +16,13 @@ class GetUserProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     ApiClient apiClient = ApiClient();
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    // SharedPreferences prefs = await SharedPreferences.getInstance();
 
     final response = await apiClient.allUsers();
     // print("API Response: $response");
 
     if (response.isEmpty) {
-      print("API returned empty data");
+     
       _users = [];
     } else {
       // Format according to the structure you need
