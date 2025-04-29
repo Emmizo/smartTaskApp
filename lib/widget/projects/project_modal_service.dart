@@ -4,39 +4,41 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smart_task_app/core/api_client.dart';
-import 'package:smart_task_app/core/global.dart';
-import 'package:smart_task_app/core/notification_service.dart';
-import 'package:smart_task_app/pages/home.dart';
-import 'package:smart_task_app/provider/get_tag_provider.dart';
-import 'package:smart_task_app/provider/get_user_provider.dart';
-
+import '../../core/api_client.dart';
+import '../../core/global.dart' as global;
+import '../../core/notification_service.dart';
+import '../../pages/home.dart';
+import '../../provider/get_tag_provider.dart';
+import '../../provider/get_user_provider.dart';
+import '../../provider/theme_provider.dart';
 
 class ProjectModalService {
   static void showCreateProjectModal() {
-    final context = navigatorKey.currentContext!;
+    final context = global.navigatorKey.currentContext!;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => CreateProjectModal(),
+      builder: (context) => const CreateProjectModal(),
     );
   }
 }
 
 class CreateProjectModal extends StatefulWidget {
+  const CreateProjectModal({super.key});
+
   @override
+  // ignore: library_private_types_in_public_api
   _CreateProjectModalState createState() => _CreateProjectModalState();
 }
 
 class _CreateProjectModalState extends State<CreateProjectModal> {
-
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   DateTime? _selectedDeadline;
-  List<int> _selectedUserIds = [];
-  List<int> _selectedTagIds = [];
+  final List<int> _selectedUserIds = [];
+  final List<int> _selectedTagIds = [];
   List<dynamic> _users = [];
   List<dynamic> _tags = [];
   bool _formSubmitted = false;
@@ -86,7 +88,7 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
     if (_nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Project name is required'),
+          content: const Text('Project name is required'),
           backgroundColor: Colors.red.shade300,
         ),
       );
@@ -96,7 +98,7 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
     if (_descriptionController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Project description is required'),
+          content: const Text('Project description is required'),
           backgroundColor: Colors.red.shade300,
         ),
       );
@@ -106,7 +108,7 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
     if (_selectedDeadline == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please select a deadline'),
+          content: const Text('Please select a deadline'),
           backgroundColor: Colors.red.shade300,
         ),
       );
@@ -115,21 +117,21 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Center(child: Text('Processing Sign Up...')),
+        content: const Center(child: Text('Processing Sign Up...')),
         backgroundColor: Colors.blue.shade300,
       ),
     );
 
     final SharedPreferences prefs = await _prefs;
-    String? userData = prefs.getString('userData');
+    final String? userData = prefs.getString('userData');
 
     if (userData != null && userData.isNotEmpty) {
-      List<dynamic> userDataMap = jsonDecode(userData);
-      String? token = userDataMap[0]['token']?.toString();
+      final List<dynamic> userDataMap = jsonDecode(userData);
+      final String? token = userDataMap[0]['token']?.toString();
 
       try {
-        ApiClient apiClient = ApiClient();
-        dynamic res = await apiClient.CreateProject(
+        final ApiClient apiClient = ApiClient();
+        final response = await apiClient.CreateProject(
           _nameController.text,
           _descriptionController.text,
           _selectedDeadline ?? DateTime.now(),
@@ -137,34 +139,54 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
           _selectedTagIds,
           token ?? '',
         );
+        // Extract project ID from response
+        final projectId = response['project_id']?.toString() ?? '';
 
-        await Future.delayed(Duration(seconds: 2));
+        await Future.delayed(const Duration(seconds: 2));
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
         // Trigger notification for project creation
         await NotificationService().showProjectCreatedNotification(
           _nameController.text,
+          projectId,
+        );
+        final List<String> userIdStrings =
+            _selectedUserIds.map((id) => id.toString()).toList();
+
+        // Send notifications to all assigned users
+        await NotificationService().sendNotificationToUsers(
+          userIdStrings,
+          'New Project Assignment',
+          'You have been assigned to project "${_nameController.text}"',
+          projectId: projectId,
+          data: {
+            'type': 'project_assignment',
+            'projectId': projectId,
+            'projectName': _nameController.text,
+          },
         );
 
         // Show professional dialog instead of a snackbar
         showDialog(
+          // ignore: use_build_context_synchronously
           context: context,
           builder: (BuildContext context) {
             return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(15),
               ),
-              title: Row(
+              title: const Row(
                 children: [
                   Icon(Icons.check_circle, color: Colors.green),
                   SizedBox(width: 10),
                   Text('Success'),
                 ],
               ),
-              content: Text('Project created successfully!'),
+              content: const Text('Project created successfully!'),
               actions: [
                 TextButton(
-                  child: Text('OK'),
+                  child: const Text('OK'),
                   onPressed: () {
                     Navigator.of(context).pop(); // Close dialog
                     Navigator.pushReplacement(
@@ -178,6 +200,7 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
           },
         );
       } catch (e) {
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Creating failed: ${e.toString()}'),
@@ -189,7 +212,7 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
   }
 
   void _pickDeadline() async {
-    DateTime? pickedDate = await showDatePicker(
+    final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
@@ -204,21 +227,22 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        padding: EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24.0),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
+          color: themeProvider.getAdaptiveCardColor(context),
+          borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(24.0),
             topRight: Radius.circular(24.0),
           ),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black26,
+            const BoxShadow(
+              color: Colors.black,
               blurRadius: 10.0,
               spreadRadius: 2.0,
             ),
@@ -229,60 +253,48 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Center(
+              const Center(
                 child: Text(
                   'Create Project',
-                  style: TextStyle(
-                    fontSize: 24.0,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                  style: TextStyle(fontSize: 24.0, fontWeight: FontWeight.bold),
                 ),
               ),
-              SizedBox(height: 24.0),
+              const SizedBox(height: 24.0),
 
               // Project Name
-              Text(
+              const Text(
                 'Project Name',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
-              SizedBox(height: 8.0),
+              const SizedBox(height: 8.0),
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
                   hintText: 'Enter project name',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
+                    borderSide: const BorderSide(color: Colors.grey),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.blueAccent),
+                    borderSide: const BorderSide(color: Colors.blueAccent),
                   ),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: themeProvider.getAdaptiveCardColor(context),
                   errorText:
                       _formSubmitted && _nameController.text.isEmpty
                           ? 'Project name is required'
                           : null,
                 ),
               ),
-              SizedBox(height: 20.0),
+              const SizedBox(height: 20.0),
 
               // Project Description
-              Text(
+              const Text(
                 'Description',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
-              SizedBox(height: 8.0),
+              const SizedBox(height: 8.0),
               TextField(
                 controller: _descriptionController,
                 maxLines: 3,
@@ -290,38 +302,37 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
                   hintText: 'Enter project description',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
+                    borderSide: const BorderSide(color: Colors.grey),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.blueAccent),
+                    borderSide: const BorderSide(color: Colors.blueAccent),
                   ),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: themeProvider.getAdaptiveCardColor(context),
                   errorText:
                       _formSubmitted && _descriptionController.text.isEmpty
                           ? 'Project description is required'
                           : null,
                 ),
               ),
-              SizedBox(height: 20.0),
+              const SizedBox(height: 20.0),
 
               // Deadline Picker
-              Text(
+              const Text(
                 'Deadline',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
-              SizedBox(height: 8.0),
+              const SizedBox(height: 8.0),
               InkWell(
                 onTap: _pickDeadline,
                 child: Container(
-                  padding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 12,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: themeProvider.getAdaptiveCardColor(context),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color:
@@ -347,44 +358,45 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
                                   : Colors.black87,
                         ),
                       ),
-                      Icon(Icons.calendar_today, color: Colors.blueAccent),
+                      const Icon(
+                        Icons.calendar_today,
+                        color: Colors.blueAccent,
+                      ),
                     ],
                   ),
                 ),
               ),
               if (_formSubmitted && _selectedDeadline == null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0, left: 12.0),
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0, left: 12.0),
                   child: Text(
                     'Please select a deadline',
                     style: TextStyle(color: Colors.red, fontSize: 12),
                   ),
                 ),
-              SizedBox(height: 20.0),
+              const SizedBox(height: 20.0),
 
               // User selection
-              Text(
+              const Text(
                 'Assign Users',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
-              SizedBox(height: 8.0),
+              const SizedBox(height: 8.0),
               DropdownButtonFormField<int>(
                 decoration: InputDecoration(
                   hintText: 'Select users',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
+                    borderSide: BorderSide(
+                      color: themeProvider.getAdaptiveCardColor(context),
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(color: Colors.blueAccent),
                   ),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: themeProvider.getAdaptiveCardColor(context),
                 ),
                 items:
                     _users.map((user) {
@@ -401,7 +413,7 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
                   }
                 },
               ),
-              SizedBox(height: 8.0),
+              const SizedBox(height: 8.0),
               Wrap(
                 spacing: 8.0,
                 children:
@@ -417,31 +429,27 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
                       );
                     }).toList(),
               ),
-              SizedBox(height: 20.0),
+              const SizedBox(height: 20.0),
 
               // Tag selection
-              Text(
+              const Text(
                 'Select Tags',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
-              SizedBox(height: 8.0),
+              const SizedBox(height: 8.0),
               DropdownButtonFormField<int>(
                 decoration: InputDecoration(
                   hintText: 'Select tags',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
+                    borderSide: const BorderSide(color: Colors.grey),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.blueAccent),
+                    borderSide: const BorderSide(color: Colors.blueAccent),
                   ),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: themeProvider.getAdaptiveCardColor(context),
                 ),
                 items:
                     _tags.map((tag) {
@@ -458,7 +466,7 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
                   }
                 },
               ),
-              SizedBox(height: 8.0),
+              const SizedBox(height: 8.0),
               Wrap(
                 spacing: 8.0,
                 children:
@@ -474,7 +482,7 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
                       );
                     }).toList(),
               ),
-              SizedBox(height: 24.0),
+              const SizedBox(height: 24.0),
 
               // Submit Button
               ElevatedButton(
@@ -482,17 +490,17 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
                   createProject();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color.fromARGB(255, 3, 63, 113),
+                  backgroundColor: const Color.fromARGB(255, 3, 63, 113),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                   padding: EdgeInsets.symmetric(vertical: 16.0),
                 ),
-                child: SizedBox(
+                child: const SizedBox(
                   width: double.infinity,
                   child: Center(
                     child: Text(
-                      "Create Project",
+                      'Create Project',
                       style: TextStyle(
                         fontSize: 18,
                         color: Colors.white,

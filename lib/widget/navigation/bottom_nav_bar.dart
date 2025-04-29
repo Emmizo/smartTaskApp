@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:smart_task_app/pages/list_all_project.dart';
+import '../../pages/home.dart';
+import '../../pages/list_all_project.dart';
 
 class BottomNavBar extends StatelessWidget {
-  const BottomNavBar({Key? key}) : super(key: key);
+  final int selectedIndex;
+  final Function(int) onItemTapped;
+  const BottomNavBar({
+    super.key,
+    required this.selectedIndex,
+    required this.onItemTapped,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -12,13 +19,21 @@ class BottomNavBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          IconButton(icon: const Icon(Icons.grid_view), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.grid_view),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const Home()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.edit_note),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => ListAllProject()),
+                MaterialPageRoute(builder: (context) => const ListAllProject()),
               );
             },
           ),

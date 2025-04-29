@@ -6,7 +6,6 @@ class SearchProvider extends ChangeNotifier {
   String get query => _query;
 
   void updateQuery(String newQuery) {
-    
     _query = newQuery;
     notifyListeners();
   }

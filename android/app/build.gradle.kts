@@ -1,57 +1,51 @@
 plugins {
     id("com.android.application")
-    id("com.google.gms.google-services") // Firebase
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
     namespace = "com.example.smart_task_app"
-    compileSdk = 34
+    compileSdk = 35 // Updated compileSdk
     ndkVersion = "27.0.12077973"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
         isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = "17" 
+        jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
     defaultConfig {
         applicationId = "com.example.smart_task_app"
         minSdk = 23
-        targetSdk = 34
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        targetSdk = 35 // Updated targetSdk
+        versionCode = 1
+        versionName = "1.0"
     }
 
     buildTypes {
-        release {
-            signingConfig = signingConfigs.getByName("debug")
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }
 
-// ✅ `dependencies {}` MUST be outside `android {}`
 dependencies {
-    implementation("com.android.tools:desugar_jdk_libs:2.0.3") 
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
-
-    /* implementation(project(":flutter_barcode_scanner")) {
-        exclude(group = "com.amolg", module = "flutterbarcodescanner") // ✅ Correct syntax
-    } */
+    
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.0")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.0") // Use the same Kotlin version here
+    implementation(platform("com.google.firebase:firebase-bom:33.10.0"))
+    implementation("com.google.firebase:firebase-analytics")
 }
 
-// ✅ Ensure your `allprojects {}` block exists in `android/build.gradle.kts`
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        
-    }
+flutter {
+    source = "../.."
 }
-
-

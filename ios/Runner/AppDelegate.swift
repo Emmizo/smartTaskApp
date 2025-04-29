@@ -13,7 +13,7 @@ import GoogleSignIn
     // Configure Firebase
     FirebaseApp.configure()
     
-    // Google Sign-In Configuration - UPDATED
+    // Google Sign-In Configuration
     if let clientID = FirebaseApp.app()?.options.clientID {
       GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
     }
@@ -38,7 +38,7 @@ import GoogleSignIn
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
   
-  // Handle Google Sign-In callback - UPDATED
+  // Handle Google Sign-In callback
   @available(iOS 9.0, *)
   override func application(
     _ application: UIApplication,

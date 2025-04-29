@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smart_task_app/widget/header/header_widget.dart';
-import 'package:smart_task_app/widget/navigation/bottom_nav_bar.dart';
-import 'package:smart_task_app/widget/projects/project_list.dart';
-import 'package:smart_task_app/widget/projects/project_modal_service.dart';
+
+import '../widget/header/header_widget.dart';
+import '../widget/navigation/bottom_nav_bar.dart';
+import '../widget/projects/project_list.dart';
+import '../widget/projects/project_modal_service.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -14,32 +14,53 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  // final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
+  final PageController _pageController = PageController();
   int _selectedIndex = 0;
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    _pageController.jumpToPage(index);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            SizedBox(
-              height: 180,
-              child: HeaderWidget(
-                scaffoldKey: _scaffoldKey,
-                selectedIndex: _selectedIndex,
-                onDataPassed: (data) {
-                  setState(() {});
-                },
+        child: CustomScrollView(
+          slivers: <Widget>[
+            SliverAppBar(
+              automaticallyImplyLeading: false,
+              expandedHeight: 180.0, // Height of the expanded header
+              floating: false, // AppBar will not float
+              pinned: false, // AppBar will not stay pinned at the top
+              snap: false, // AppBar will not snap into view
+              flexibleSpace: FlexibleSpaceBar(
+                background: HeaderWidget(
+                  scaffoldKey: _scaffoldKey,
+                  selectedIndex: _selectedIndex,
+                  onDataPassed: (data) {
+                    setState(() {});
+                  },
+                ),
               ),
             ),
-            Expanded(
-              child: ProjectList(), // No need for ListView here
+            // SliverList for the scrollable content
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (BuildContext context, int index) {
+                  return const ProjectList(); // Your ProjectList widget
+                },
+                childCount: 1, // Only one item (ProjectList)
+              ),
             ),
           ],
         ),
       ),
-
-      bottomNavigationBar: const BottomNavBar(),
+      bottomNavigationBar: BottomNavBar(
+        selectedIndex: _selectedIndex,
+        onItemTapped: _onItemTapped,
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           // Call the global project modal service

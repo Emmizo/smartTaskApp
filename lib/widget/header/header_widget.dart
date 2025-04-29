@@ -1,14 +1,24 @@
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smart_task_app/core/user_service.dart';
-import 'package:smart_task_app/pages/login.dart';
-import 'package:smart_task_app/provider/header_provider.dart';
-import 'package:smart_task_app/provider/login_data.dart';
-import 'package:smart_task_app/provider/search_provider.dart';
-import 'package:smart_task_app/provider/theme_provider.dart';
+import '../../core/api_client.dart';
+import '../../core/notification_preferences_screen.dart';
+import '../../core/notification_service.dart';
+import '../../core/online_status_indicator.dart';
+import '../../core/totp_service.dart';
+import '../../core/user_service.dart';
+import '../../pages/login.dart';
+import '../../pages/two_fa_setup_screen.dart';
+import '../../provider/all_task_provider.dart';
+import '../../provider/connectivity_provider.dart';
+import '../../provider/header_provider.dart';
+import '../../provider/login_data.dart';
+import '../../provider/online_status_provider.dart';
+import '../../provider/search_provider.dart';
+
+import '../../provider/theme_provider.dart';
 
 class HeaderWidget extends StatefulWidget implements PreferredSizeWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
@@ -30,63 +40,109 @@ class HeaderWidget extends StatefulWidget implements PreferredSizeWidget {
 class _HeaderWidgetState extends State<HeaderWidget> {
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   List<Map<String, dynamic>> userInfo = [];
-
+  bool is2FAEnabled = false;
   @override
   void initState() {
     super.initState();
     getUserResult();
-
-    // Add a test notification after widget initialization for testing
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Uncomment the line below to test adding a notification when the app starts
-      // NotificationService().testNotification();
+      if (userInfo.isNotEmpty && userInfo[0]['id'] != null) {
+        final String userId = userInfo[0]['id'].toString();
+        UserService.ensureUserDocument(userId, online: true);
+      }
     });
   }
 
   void getUserResult() async {
     final SharedPreferences prefs = await _prefs;
-    String? userData = prefs.getString('userData');
+    final String? userData = prefs.getString('userData');
 
     if (userData != null && userData.isNotEmpty) {
       try {
-        List<dynamic> userDataMap = jsonDecode(userData);
+        final List<dynamic> userDataMap = jsonDecode(userData);
 
-        String? token = userDataMap[0]['token'];
+        final String? token = userDataMap[0]['token'];
 
         if (token != null) {
-          await context.read<LoginData>().setUserInfo(token);
+          // Check internet connectivity
+          final connectivityProvider = Provider.of<ConnectivityProvider>(
+            context,
+            listen: false,
+          );
+          if (connectivityProvider.isOnline) {
+            // ignore: use_build_context_synchronously
+            await context.read<LoginData>().setUserInfo(token);
 
-          if (mounted) {
-            setState(() {
-              final loginData = Provider.of<LoginData>(context, listen: false);
-              userInfo = loginData.getUserData; // Now types match
+            if (mounted) {
+              setState(() {
+                final loginData = Provider.of<LoginData>(
+                  context,
+                  listen: false,
+                );
+                userInfo = loginData.getUserData;
 
-              widget.onDataPassed(userInfo);
-            });
+                widget.onDataPassed(userInfo);
+
+                // Set user ID in OnlineStatusProvider after getting user data
+                if (userInfo.isNotEmpty && userInfo[0]['id'] != null) {
+                  final String userId = userInfo[0]['id'].toString();
+                  Provider.of<OnlineStatusProvider>(
+                    context,
+                    listen: false,
+                  ).setUserId(userId);
+                  UserService.ensureUserDocument(userId, online: true);
+                }
+              });
+            }
+          } else {
+            // If no internet, use data from SharedPreferences
+            if (mounted) {
+              setState(() {
+                userInfo = userDataMap.cast<Map<String, dynamic>>();
+                widget.onDataPassed(userInfo);
+              });
+            }
           }
         }
-      } catch (e) {
-        print("Error decoding JSON here: $e");
-      }
+        // ignore: empty_catches
+      } catch (e) {}
     }
   }
 
   logOut() async {
+    if (!mounted) return;
+
     final SharedPreferences prefs = await _prefs;
-    // await prefs.remove('token');
+    final taskProvider = Provider.of<AllTaskProvider>(context, listen: false);
+
+    // Set offline status before logging out
+    if (userInfo.isNotEmpty && userInfo[0]['id'] != null) {
+      final String userId = userInfo[0]['id'].toString();
+      await UserService.ensureUserDocument(userId, online: false);
+      await Provider.of<OnlineStatusProvider>(context, listen: false).cleanup();
+    }
+
+    taskProvider.clearTasks();
+    await prefs.remove('allProjects');
+    await FirebaseAuth.instance.signOut();
     await prefs.remove('userData');
-    Navigator.push(
-      // ignore: use_build_context_synchronously
-      context,
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const Login()),
+      (Route<dynamic> route) => false,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    String userId = userInfo.isNotEmpty ? userInfo[0]['id'].toString() : '';
+    final String userId =
+        userInfo.isNotEmpty ? userInfo[0]['id'].toString() : '';
+
     return Consumer2<HeaderProvider, ThemeProvider>(
       builder: (context, headerProvider, themeProvider, _) {
+        final user = userInfo.isNotEmpty ? userInfo[0] : null;
         return Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -110,18 +166,16 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                             radius: 20,
                             backgroundColor: Colors.blue,
                             child:
-                                userInfo.isNotEmpty &&
-                                        userInfo[0]['profile_picture'] !=
-                                            null &&
-                                        userInfo[0]['profile_picture']
-                                            .isNotEmpty
+                                user != null &&
+                                        user['profile_picture'] != null &&
+                                        user['profile_picture'].isNotEmpty
                                     ? ClipRRect(
                                       borderRadius: BorderRadius.circular(20),
                                       child: Hero(
                                         tag:
-                                            "profile-${userInfo[0]['profile_picture']}", // Unique tag based on the image URL
+                                            "profile-${user['profile_picture']}",
                                         child: Image.network(
-                                          userInfo[0]['profile_picture'],
+                                          user['profile_picture'],
                                           width: 40,
                                           height: 40,
                                           fit: BoxFit.cover,
@@ -129,11 +183,7 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                                       ),
                                     )
                                     : Text(
-                                      getInitials(
-                                        userInfo.isNotEmpty
-                                            ? userInfo[0]['first_name']
-                                            : '',
-                                      ),
+                                      getInitials(user?['first_name'] ?? ''),
                                       style: const TextStyle(
                                         color: Colors.white,
                                       ),
@@ -143,7 +193,7 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                             Positioned(
                               right: 0,
                               bottom: 0,
-                              child: buildOnlineStatusIndicator(userId),
+                              child: OnlineStatusIndicator.build(userId),
                             ),
                         ],
                       ),
@@ -161,13 +211,17 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                                 ? userInfo[0]['first_name']
                                 : '',
                             style: const TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           Text(
                             'Hi ${userInfo.isNotEmpty ? userInfo[0]['fovorite_name'] : ''}, ${headerProvider.greeting}!',
-                            style: const TextStyle(color: Colors.grey),
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 10,
+                            ),
                           ),
                         ],
                       ),
@@ -190,9 +244,6 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                           icon: const Icon(Icons.notifications_outlined),
                           onPressed: () {
                             _showNotifications(context);
-                            print(
-                              "Notification icon clicked. Count: ${headerProvider.notifications.length}",
-                            );
                           },
                         ),
                         if (headerProvider.unreadCount > 0)
@@ -238,7 +289,7 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                         // Search Bar
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.grey[100],
+                            color: themeProvider.getAdaptiveCardColor(context),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: TextField(
@@ -269,42 +320,8 @@ class _HeaderWidgetState extends State<HeaderWidget> {
     );
   }
 
-  Widget buildOnlineStatusIndicator(String userId) {
-    return StreamBuilder<bool>(
-      stream: UserService.getUserOnlineStatus(userId),
-      builder: (context, snapshot) {
-        // Add error handling and loading states
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Container(
-            width: 12,
-            height: 12,
-          ); // Empty placeholder while loading
-        }
-
-        bool isOnline = snapshot.data ?? false;
-        return Positioned(
-          right: 0,
-          bottom: 0,
-          child: Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: isOnline ? Colors.green : Colors.grey,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   void _showNotifications(BuildContext context) {
     final headerProvider = Provider.of<HeaderProvider>(context, listen: false);
-
-    print(
-      "Showing notifications modal. Count: ${headerProvider.notifications.length}",
-    );
 
     showModalBottomSheet(
       context: context,
@@ -319,31 +336,34 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Notifications',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        IconButton(
+                          icon: const Icon(Icons.settings),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) =>
+                                        const NotificationPreferencesScreen(),
+                              ),
+                            );
+                          },
                         ),
-                        Row(
-                          children: [
-                            TextButton(
-                              onPressed: () {
-                                headerProvider.markAllAsRead();
-                                setState(() {});
-                              },
-                              child: const Text('Mark all as read'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                headerProvider.clearNotifications();
-                                setState(() {});
-                                Navigator.pop(context);
-                              },
-                              child: const Text('Clear all'),
-                            ),
-                          ],
+                        TextButton(
+                          onPressed: () {
+                            headerProvider.markAllAsRead();
+                            setState(() {});
+                          },
+                          child: const Text('Mark all as read'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            headerProvider.clearNotifications();
+                            setState(() {});
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Clear all'),
                         ),
                       ],
                     ),
@@ -384,7 +404,6 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                                 onTap: () {
                                   headerProvider.markAsRead(index);
                                   setState(() {});
-                                  // Handle notification tap (navigate to related content)
                                 },
                               );
                             },
@@ -441,6 +460,110 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.security),
+                  title: const Text('Two-Factor Authentication'),
+                  trailing: Switch(
+                    value: userInfo[0]['has_2fa_enabled'] == '1' ? true : false,
+                    onChanged: (value) async {
+                      if (!mounted) return;
+
+                      // Close the drawer or bottom sheet or menu immediately (before any await)
+                      Navigator.pop(context);
+
+                      final prefs = await SharedPreferences.getInstance();
+                      final String? userData = prefs.getString('userData');
+
+                      if (!mounted) return;
+
+                      if (userData == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('User data not found')),
+                        );
+                        return;
+                      }
+
+                      final dynamic decodedData = jsonDecode(userData);
+                      String token;
+
+                      if (decodedData is List) {
+                        token = decodedData[0]['token']?.toString() ?? '';
+                      } else if (decodedData is Map) {
+                        token = decodedData['token']?.toString() ?? '';
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Invalid user data format'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (value) {
+                        // Enable 2FA
+                        final bool? setupComplete = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TwoFASetupScreen(),
+                          ),
+                        );
+
+                        if (setupComplete == true && mounted) {
+                          getUserResult(); // Refresh user data
+                        }
+                      } else {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder:
+                              (context) => AlertDialog(
+                                title: const Text('Disable 2FA?'),
+                                content: const Text(
+                                  'This will reduce your account security.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed:
+                                        () => Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed:
+                                        () => Navigator.pop(context, true),
+                                    child: const Text('Disable'),
+                                  ),
+                                ],
+                              ),
+                        );
+
+                        if (confirmed == true) {
+                          print(confirmed);
+                          final response = await ApiClient().disable2FA(token);
+                          if (response['success'] == true && mounted) {
+                            await TOTPService.removeSecret();
+                            await TOTPService.set2FAStatus(false);
+                            getUserResult();
+                          } else {
+                            setState(() {
+                              is2FAEnabled = true; // Reset if disabling failed
+                            });
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  response['error'] ?? 'Failed to disable 2FA',
+                                ),
+                              ),
+                            );
+                          }
+                        } else {
+                          setState(() {
+                            is2FAEnabled = true; // Reset if user cancels dialog
+                          });
+                        }
+                      }
+                    },
+                  ),
+                ),
+                ListTile(
                   leading: const Icon(Icons.logout),
                   title: const Text('Logout'),
                   onTap: () {
@@ -481,7 +604,7 @@ String getInitials(String fullname) {
   if (fullname.isEmpty) {
     return ''; // Return empty string if name is empty
   } else {
-    List<String> names = fullname.split(' ');
+    final List<String> names = fullname.split(' ');
     if (names.length == 1) {
       return names[0]
           .substring(0, 1)

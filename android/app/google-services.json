@@ -12,7 +12,20 @@
           "package_name": "com.example.smart_task_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "894667091574-kmc0arkvhdhudfim2ti057qrafu71tst.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.smart_task_app",
+            "certificate_hash": "c7610ca8d83548bdf695955b455da6ee8e7a8bc4"
+          }
+        },
+        {
+          "client_id": "894667091574-jk2et7oqdqak2vq99s1ta7j5agobhq9k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBH2pcHp5XQJ5_eU24g6B2bV_xtMHQ5rUU"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "894667091574-5k29t1sf78nsi96ti11tl16beb5itr8f.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "894667091574-rtqhd0bnp3k3forck3au25nmhu1jqjhu.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.smartTaskApp"
+              }
+            }
+          ]
         }
       }
     }

@@ -2,22 +2,25 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:smart_task_app/core/app_life_cucle_listener.dart';
-import 'package:smart_task_app/core/global.dart';
-import 'package:smart_task_app/core/notification_service.dart';
-import 'package:smart_task_app/core/splash_screen.dart';
-import 'package:smart_task_app/firebase_options.dart';
+// ignore: depend_on_referenced_packages
+import 'package:timezone/data/latest.dart' as tz;
 
-import 'package:smart_task_app/provider/all_task_provider.dart';
-import 'package:smart_task_app/provider/get_tag_provider.dart';
-import 'package:smart_task_app/provider/get_task_tag_provider.dart';
-import 'package:smart_task_app/provider/get_user_provider.dart';
-import 'package:smart_task_app/provider/header_provider.dart';
-import 'package:smart_task_app/provider/login_data.dart';
-import 'package:smart_task_app/provider/search_provider.dart';
-import 'package:smart_task_app/provider/task_provider.dart';
-import 'package:smart_task_app/provider/theme_provider.dart';
-import 'package:smart_task_app/provider/online_status_provider.dart';
+import 'core/app_life_cycle_listener.dart';
+import 'core/global.dart';
+import 'core/notification_service.dart';
+import 'core/splash_screen.dart';
+import 'firebase_options.dart';
+import 'provider/all_task_provider.dart';
+import 'provider/connectivity_provider.dart';
+import 'provider/get_tag_provider.dart';
+import 'provider/get_task_tag_provider.dart';
+import 'provider/get_user_provider.dart';
+import 'provider/header_provider.dart';
+import 'provider/login_data.dart';
+import 'provider/online_status_provider.dart';
+import 'provider/search_provider.dart';
+import 'provider/task_provider.dart';
+import 'provider/theme_provider.dart';
 
 // Define global navigator key here at the top level
 // final GlobalKey<NavigatorState> navigatorKeys = GlobalKey<NavigatorState>();
@@ -42,6 +45,7 @@ Future<void> main() async {
 
   // Set up background message handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  tz.initializeTimeZones();
 
   // Run the app
   runApp(
@@ -57,8 +61,9 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => AllTaskProvider()),
         ChangeNotifierProvider(create: (_) => GetTaskTagProvider()),
         ChangeNotifierProvider(create: (_) => OnlineStatusProvider()),
+        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
       ],
-      child:  const AppOnlineStatusListener(child: MyApp()),
+      child: const AppOnlineStatusListener(child: MyApp()),
     ),
   );
 }

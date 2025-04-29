@@ -1,7 +1,18 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:smart_task_app/core/api_client.dart';
-import 'package:smart_task_app/core/auth_utils.dart';
-import 'package:smart_task_app/widget/projects/project_modal_service.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../core/api_client.dart';
+import '../core/auth_utils.dart';
+import '../core/notification_service.dart';
+import '../core/online_status_indicator.dart';
+import '../provider/connectivity_provider.dart';
+import '../provider/search_provider.dart';
+import '../provider/theme_provider.dart';
+import '../widget/header/header_widget.dart';
+import '../widget/navigation/bottom_nav_bar.dart';
+import '../widget/projects/project_modal_service.dart';
 
 class ListAllProject extends StatefulWidget {
   const ListAllProject({super.key});
@@ -11,82 +22,169 @@ class ListAllProject extends StatefulWidget {
 }
 
 class _ListAllProjectState extends State<ListAllProject> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   Future<List<dynamic>>? futureProjects;
   final ApiClient _apiClient = ApiClient();
   String? _token;
   final TextEditingController _searchController = TextEditingController();
   List<dynamic> _allProjects = [];
   List<dynamic> _filteredProjects = [];
-  String _sortBy = 'name';
-  String _selectedMonth = 'All';
+  final String _sortBy = 'name';
+  final String _selectedMonth = 'All';
+  int _selectedIndex = 1;
+  Timer? _deadlineCheckTimer;
+  late SharedPreferences _prefs;
 
   @override
   void initState() {
     super.initState();
-    _loadTokenAndFetchProjects();
+    _initialize();
     _searchController.addListener(_onSearchChanged);
+
+    Timer.periodic(const Duration(hours: 1), (Timer timer) {
+      _checkDeadlinesAndNotify();
+    });
+  }
+
+  Future<void> _initialize() async {
+    _prefs = await SharedPreferences.getInstance();
+    await _loadTokenAndFetchProjects();
   }
 
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _deadlineCheckTimer?.cancel();
     super.dispose();
+  }
+
+  void _onItemTapped(int index) {
+    if (mounted) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   Future<void> _loadTokenAndFetchProjects() async {
     _token = await AuthUtils.getToken();
     if (_token != null) {
-      final projectsFuture = _apiClient.projects(_token!);
+      final connectivityProvider = Provider.of<ConnectivityProvider>(
+        // ignore: use_build_context_synchronously
+        context,
+        listen: false,
+      );
 
-      projectsFuture
-          .then((projects) {
-            setState(() {
-              _allProjects = projects;
-              _filteredProjects = projects;
-              _applyFilters(); // Apply filters after loading projects
-            });
-          })
-          .catchError((error) {});
+      if (connectivityProvider.isOnline) {
+        await _fetchProjectsFromApi();
+      } else {
+        await _loadProjectsFromPrefs();
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _allProjects = [];
+          _filteredProjects = [];
+        });
+      }
+    }
+  }
 
+  Future<void> _fetchProjectsFromApi() async {
+    try {
+      final projects = await _apiClient.projects(_token!);
+      if (mounted) {
+        setState(() {
+          _allProjects = projects;
+          _filteredProjects = projects;
+          _applyFilters();
+        });
+      }
+      _prefs.setString('allProjects', jsonEncode(projects));
+    } catch (e) {
+      await _loadProjectsFromPrefs();
+    }
+  }
+
+  Future<void> _loadProjectsFromPrefs() async {
+    final String? storedProjects = _prefs.getString('allProjects');
+    if (storedProjects != null && storedProjects.isNotEmpty) {
+      final projects = jsonDecode(storedProjects) as List<dynamic>;
       setState(() {
-        futureProjects = projectsFuture;
+        _allProjects = projects;
+        _filteredProjects = projects;
+        _applyFilters();
       });
     } else {
       setState(() {
-        futureProjects = Future.value([]);
+        _allProjects = [];
+        _filteredProjects = [];
       });
     }
   }
 
   void _onSearchChanged() {
-    _applyFilters(); // Apply filters when search text changes
+    _applyFilters();
+  }
+
+  void _checkDeadlinesAndNotify() {
+    final now = DateTime.now();
+    for (var project in _allProjects) {
+      final deadline = DateTime.tryParse(project['deadline'] ?? '');
+
+      if (deadline != null) {
+        final difference = deadline.difference(now).inDays;
+        if (difference == 1) {
+          // Deadline is in one day
+          final projectName = project['name'] ?? 'Unnamed Project';
+          final teamMembers = project['team'] ?? [];
+          final projectId = project['id'] ?? '';
+          for (var member in teamMembers) {
+            final memberName = '${member['first_name']} ${member['last_name']}';
+            NotificationService().showProjectDeadlineNotification(
+              '$memberName Deadline Approaching',
+              projectName,
+              /*  'The deadline for $projectName is in one day.', */
+              deadline,
+              projectId,
+            );
+          }
+        }
+      }
+    }
   }
 
   void _applyFilters() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      _filteredProjects =
-          _allProjects.where((project) {
-            final name = project['name']?.toString().toLowerCase() ?? '';
-            final description =
-                project['description']?.toString().toLowerCase() ?? '';
-            final deadline = project['deadline']?.toString() ?? '';
+    if (_selectedIndex == 1) {
+      final query =
+          Provider.of<SearchProvider>(
+            context,
+            listen: false,
+          ).query.toLowerCase();
+      setState(() {
+        _filteredProjects =
+            _allProjects.where((project) {
+              final name = project['name']?.toString().toLowerCase() ?? '';
+              final description =
+                  project['description']?.toString().toLowerCase() ?? '';
+              final deadline = project['deadline']?.toString() ?? '';
 
-            // Apply search filter
-            final matchesSearch =
-                name.contains(query) || description.contains(query);
+              // Apply search filter
+              final matchesSearch =
+                  name.contains(query) || description.contains(query);
 
-            // Apply month filter
-            final matchesMonth =
-                _selectedMonth == 'All' ||
-                _isProjectInMonth(deadline, _selectedMonth);
+              // Apply month filter
+              final matchesMonth =
+                  _selectedMonth == 'All' ||
+                  _isProjectInMonth(deadline, _selectedMonth);
 
-            return matchesSearch && matchesMonth;
-          }).toList();
+              return matchesSearch && matchesMonth;
+            }).toList();
 
-      _sortProjects(); // Sort projects after filtering
-    });
+        _sortProjects(); // Sort projects after filtering
+      });
+    }
   }
 
   bool _isProjectInMonth(String deadline, String month) {
@@ -142,279 +240,81 @@ class _ListAllProjectState extends State<ListAllProject> {
     });
   }
 
-  void _showSortByDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Sort By'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: const Text('Name'),
-                onTap: () {
-                  setState(() {
-                    _sortBy = 'name';
-                    _applyFilters();
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                title: const Text('Deadline'),
-                onTap: () {
-                  setState(() {
-                    _sortBy = 'deadline';
-                    _applyFilters();
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                title: const Text('Progress'),
-                onTap: () {
-                  setState(() {
-                    _sortBy = 'progress';
-                    _applyFilters();
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showMonthFilterDialog() {
-    final monthNames = [
-      'All',
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Filter By Month'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children:
-                  monthNames.map((month) {
-                    return ListTile(
-                      title: Text(month),
-                      onTap: () {
-                        setState(() {
-                          _selectedMonth = month;
-                          _applyFilters();
-                        });
-                        Navigator.pop(context);
-                      },
-                    );
-                  }).toList(),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildAppBar(),
-      body: SafeArea(
-        child: Column(
-          children: [_buildHeader(), Expanded(child: _buildProjectList())],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Call the global project modal service
-          ProjectModalService.showCreateProjectModal();
-        },
-        tooltip: 'Add New Project',
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
+    Provider.of<ConnectivityProvider>(context);
 
-  AppBar _buildAppBar() {
-    return AppBar(
-      title: const Text(
-        'Projects',
-        style: TextStyle(fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            offset: const Offset(0, 2),
-            blurRadius: 4,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'My Projects',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: _showMonthFilterDialog,
-                      child: Text(
-                        _selectedMonth,
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+    return Consumer<SearchProvider>(
+      builder: (context, searchProvider, child) {
+        return Scaffold(
+          body: SafeArea(
+            child: CustomScrollView(
+              slivers: <Widget>[
+                SliverAppBar(
+                  expandedHeight: 180.0,
+                  automaticallyImplyLeading: false,
+                  floating: false,
+                  pinned: false,
+                  snap: false,
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: HeaderWidget(
+                      scaffoldKey: _scaffoldKey,
+                      selectedIndex: _selectedIndex,
+                      onDataPassed: (data) {
+                        setState(() {});
+                      },
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.arrow_drop_down, color: Colors.blue),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: const InputDecoration(
-                hintText: 'Search projects...',
-                prefixIcon: Icon(Icons.search),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 15),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProjectList() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      decoration: BoxDecoration(color: Colors.grey[50]),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 8, bottom: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Active Projects',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: _showSortByDialog,
-                  icon: const Icon(Icons.sort, size: 16),
-                  label: const Text('Sort By'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.grey[700],
-                  ),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate((
+                    BuildContext context,
+                    int index,
+                  ) {
+                    return _buildProjectCard(_filteredProjects[index]);
+                  }, childCount: _filteredProjects.length),
                 ),
               ],
             ),
           ),
-          Expanded(
-            child: FutureBuilder<List<dynamic>>(
-              future: futureProjects,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('No projects found.'));
-                } else {
-                  return ListView.builder(
-                    itemCount: _filteredProjects.length,
-                    itemBuilder: (context, index) {
-                      final project = _filteredProjects[index];
-                      return _buildProjectCard(project);
-                    },
-                  );
-                }
-              },
-            ),
+          bottomNavigationBar: BottomNavBar(
+            selectedIndex: _selectedIndex,
+            onItemTapped: _onItemTapped,
           ),
-        ],
-      ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              ProjectModalService.showCreateProjectModal();
+            },
+            backgroundColor: const Color(0xFF6B4EFF),
+            child: const Icon(Icons.add),
+          ),
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerDocked,
+        );
+      },
     );
   }
 
   Widget _buildProjectCard(Map<String, dynamic> project) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final double progress = (project['progress'] as num).toDouble();
-    final Color color = _parseColor(project['color'] as String?);
+    const Color color = Color(0xFF4CD9AC);
 
-    // Extract team members
-    final List<dynamic> teamMembers = project['team'][0];
+    final List<dynamic> teamMembers = project['team'];
     final List<String> teamMemberNames =
         teamMembers
             .map((member) => '${member['first_name']} ${member['last_name']}')
             .toList();
-
+    final List<String> teamMemberIds =
+        teamMembers.map((member) => '${member['id']}').toList();
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: themeProvider.getAdaptiveCardColor(context),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: themeProvider.getAdaptiveCardColor(context),
             offset: const Offset(0, 4),
             blurRadius: 10,
           ),
@@ -426,7 +326,7 @@ class _ListAllProjectState extends State<ListAllProject> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withOpacity(0.5),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -444,16 +344,12 @@ class _ListAllProjectState extends State<ListAllProject> {
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Deadline: ${project['deadline'] ?? 'No Deadline'}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.black54,
-                        ),
+                        style: const TextStyle(fontSize: 13),
                       ),
                     ],
                   ),
@@ -467,13 +363,13 @@ class _ListAllProjectState extends State<ListAllProject> {
                       child: CircularProgressIndicator(
                         value: progress,
                         backgroundColor: Colors.grey[200],
-                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                        valueColor: const AlwaysStoppedAnimation<Color>(color),
                         strokeWidth: 5,
                       ),
                     ),
                     Text(
                       '${(progress * 100).toInt()}%',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: color,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
@@ -491,11 +387,7 @@ class _ListAllProjectState extends State<ListAllProject> {
               children: [
                 Text(
                   project['description'] ?? 'No Description',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.black87,
-                    height: 1.5,
-                  ),
+                  style: const TextStyle(fontSize: 14, height: 1.5),
                 ),
                 const SizedBox(height: 16),
                 const Divider(height: 1),
@@ -511,7 +403,6 @@ class _ListAllProjectState extends State<ListAllProject> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -519,23 +410,36 @@ class _ListAllProjectState extends State<ListAllProject> {
                           children: [
                             for (int i = 0; i < teamMemberNames.length; i++)
                               if (i < 3)
-                                Container(
-                                  margin: EdgeInsets.only(
-                                    right:
-                                        i == teamMemberNames.length - 1 ? 0 : 8,
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: color.withOpacity(0.2),
-                                    child: Text(
-                                      teamMemberNames[i].substring(0, 1),
-                                      style: TextStyle(
-                                        color: color,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
+                                Stack(
+                                  children: [
+                                    Container(
+                                      margin: EdgeInsets.only(
+                                        right:
+                                            i == teamMemberNames.length - 1
+                                                ? 0
+                                                : 8,
+                                      ),
+                                      child: CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: color.withOpacity(0.2),
+                                        child: Text(
+                                          teamMemberNames[i].substring(0, 1),
+                                          style: const TextStyle(
+                                            color: color,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                    Positioned(
+                                      right: 0,
+                                      bottom: 0,
+                                      child: OnlineStatusIndicator.build(
+                                        teamMemberIds[i],
+                                      ),
+                                    ),
+                                  ],
                                 )
                               else if (i == 3)
                                 Container(
@@ -559,7 +463,11 @@ class _ListAllProjectState extends State<ListAllProject> {
                     ),
                     TextButton.icon(
                       onPressed: () {},
-                      icon: Icon(Icons.visibility, size: 16, color: color),
+                      icon: const Icon(
+                        Icons.visibility,
+                        size: 16,
+                        color: color,
+                      ),
                       label: const Text(
                         'View Details',
                         style: TextStyle(fontWeight: FontWeight.w600),
@@ -580,20 +488,5 @@ class _ListAllProjectState extends State<ListAllProject> {
         ],
       ),
     );
-  }
-
-  Color _parseColor(String? color) {
-    switch (color) {
-      case 'blue':
-        return Colors.blue;
-      case 'orange':
-        return Colors.orange;
-      case 'green':
-        return Colors.green;
-      case 'purple':
-        return Colors.purple;
-      default:
-        return Colors.blue; // Default color
-    }
   }
 }

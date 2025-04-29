@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smart_task_app/core/api_client.dart';
+import '../core/api_client.dart';
 
 class GetTaskTagProvider with ChangeNotifier {
   List<dynamic> _tags = [];
@@ -15,8 +14,7 @@ class GetTaskTagProvider with ChangeNotifier {
   Future<void> fetchTags() async {
     _isLoading = true;
     notifyListeners();
-    ApiClient apiClient = ApiClient();
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final ApiClient apiClient = ApiClient();
 
     final response = await apiClient.taskTags();
     // print("API Response: $response");

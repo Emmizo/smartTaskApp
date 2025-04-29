@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smart_task_app/core/api_client.dart';
+import '../core/api_client.dart';
 
 class LoginData with ChangeNotifier, DiagnosticableTreeMixin {
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
@@ -12,7 +12,7 @@ class LoginData with ChangeNotifier, DiagnosticableTreeMixin {
   Future setUserInfo(String token) async {
     final SharedPreferences prefs = await _prefs;
 
-    ApiClient apiClient = ApiClient();
+    final ApiClient apiClient = ApiClient();
     _userData = await apiClient.userInfo(token);
     // Add token to each map in the list
     for (var user in _userData) {
@@ -20,9 +20,9 @@ class LoginData with ChangeNotifier, DiagnosticableTreeMixin {
     }
 
     // print("provider $_userData");
-    String userDataString = jsonEncode(_userData);
+    final String userDataString = jsonEncode(_userData);
 
-    prefs.setString("userData", userDataString.toString());
+    prefs.setString('userData', userDataString.toString());
     notifyListeners();
   }
 
