@@ -321,9 +321,12 @@ class _LoginState extends State<Login> {
           confirmPasswordController.text,
         );
 
-        if (res != null && res['token'] != null) {
+        /* if (res != null && res['token'] != null) {
           final String accessToken = res['token'];
           final String userId = res['id'].toString();
+          print(res['token']);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('userData', jsonEncode(res));
           if (res['has_2fa_enabled'] != '1') {
             // Show 2FA verification dialog
             final verified = await showDialog<bool>(
@@ -372,6 +375,72 @@ class _LoginState extends State<Login> {
           );
         } else {
           throw Exception(res['message'] ?? 'Signup failed: Unknown error');
+        } */
+        if (res is List && res.isNotEmpty) {
+          final userInfo = res[0];
+          if (userInfo is Map<String, dynamic>) {
+            final String? accessToken = userInfo['token'];
+            final user = userInfo['user'];
+            // print(user);
+            if (accessToken != null && user != null) {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('userData', jsonEncode(res));
+
+              if (user['has_2fa_enabled'] != '1') {
+                print(user['has_2fa_enabled']);
+                // Show 2FA verification dialog
+                final verified = await showDialog<bool>(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => TwoFADialog(),
+                );
+
+                if (verified != true) {
+                  throw Exception('2FA verification failed');
+                }
+              }
+
+              await Provider.of<LoginData>(
+                context,
+                listen: false,
+              ).setUserInfo(accessToken);
+
+              final String userId = user['id'].toString();
+
+              try {
+                await FirebaseAuth.instance.signInWithEmailAndPassword(
+                  email: emailController.text,
+                  password: passwordController.text,
+                );
+
+                await UserService.ensureUserDocument(userId, online: true);
+                await Provider.of<OnlineStatusProvider>(
+                  context,
+                  listen: false,
+                ).setUserId(userId);
+                await Provider.of<OnlineStatusProvider>(
+                  context,
+                  listen: false,
+                ).updateOnlineStatus(true);
+                await NotificationService().initialize();
+
+                // ignore: empty_catches
+              } catch (e) {}
+
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const Home()),
+                  (Route<dynamic> route) => false,
+                );
+              }
+            } else {
+              throw Exception('Something went wrong');
+            }
+          } else {
+            throw Exception('User data is not in expected format');
+          }
+        } else {
+          throw Exception('Unexpected API response format');
         }
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
