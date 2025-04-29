@@ -264,7 +264,10 @@ class _ProjectListState extends State<ProjectList> {
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
                                   ),
-                                  itemCount: filteredProjects.length,
+                                  itemCount:
+                                      filteredProjects.length > 3
+                                          ? 4
+                                          : filteredProjects.length,
                                   itemBuilder: (context, index) {
                                     final project = filteredProjects[index];
 

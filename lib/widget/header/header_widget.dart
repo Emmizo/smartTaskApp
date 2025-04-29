@@ -296,11 +296,18 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                             onChanged: (value) {
                               context.read<SearchProvider>().updateQuery(value);
                             },
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Search projects...',
-                              prefixIcon: Icon(Icons.search),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
+                              prefixIcon: const Icon(Icons.search),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Color.fromARGB(255, 224, 219, 219),
+                                  width: 0.5,
+                                ),
+                              ),
+
+                              contentPadding: const EdgeInsets.symmetric(
                                 vertical: 15,
                               ),
                             ),
