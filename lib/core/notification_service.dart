@@ -1052,6 +1052,7 @@ class NotificationService {
     List<String> recipientIds,
   ) async {
     try {
+      print(recipientIds);
       // Use our new method to send to specific users
       await sendNotificationToUsers(
         recipientIds,

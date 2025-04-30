@@ -76,6 +76,7 @@ class ProjectCard extends StatelessWidget {
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         subtitle.length > 17
