@@ -216,7 +216,7 @@ class ApiClient {
       }
     } on DioException catch (e) {
       if (kDebugMode) {
-        print('Failed to load users: ${e.message}');
+        // print('Failed to load users: e.message');
       }
       // Return cached data if available
       return await OfflineDataManager.getCachedUsers();
