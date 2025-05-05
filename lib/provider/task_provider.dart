@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../core/api_client.dart';
 import 'connectivity_provider.dart';
 
@@ -11,6 +13,7 @@ class TaskProvider with ChangeNotifier {
   List<dynamic> _tasks = [];
   bool _isLoading = false;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  StreamSubscription? _tasksSubscription;
 
   TaskProvider() {
     _setupFirestoreListener();
@@ -77,7 +80,7 @@ class TaskProvider with ChangeNotifier {
   }
 
   void _setupFirestoreListener() {
-    _firestore
+    _tasksSubscription = _firestore
         .collection('tasks')
         .snapshots()
         .listen(
@@ -97,5 +100,11 @@ class TaskProvider with ChangeNotifier {
             notifyListeners();
           },
         );
+  }
+
+  @override
+  void dispose() {
+    _tasksSubscription?.cancel();
+    super.dispose();
   }
 }

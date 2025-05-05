@@ -53,6 +53,13 @@ class _CreateProjectModalState extends State<CreateProjectModal> {
     });
   }
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
   Future<void> fetchUsers() async {
     final getUserProvider = Provider.of<GetUserProvider>(
       context,

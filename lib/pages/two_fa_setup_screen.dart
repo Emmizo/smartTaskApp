@@ -27,6 +27,12 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
     _generateSecret();
   }
 
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
   Future<void> _generateSecret() async {
     setState(() => _isLoading = true);
     try {

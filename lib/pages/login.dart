@@ -706,9 +706,21 @@ class _LoginState extends State<Login> {
   }
 }
 
-// Add this dialog widget in the same file or a new one
-class TwoFADialog extends StatelessWidget {
+class TwoFADialog extends StatefulWidget {
+  const TwoFADialog({Key? key}) : super(key: key);
+
+  @override
+  State<TwoFADialog> createState() => _TwoFADialogState();
+}
+
+class _TwoFADialogState extends State<TwoFADialog> {
   final TextEditingController _codeController = TextEditingController();
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
